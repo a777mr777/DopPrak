@@ -3,17 +3,30 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 stages:
+  - secrets
   - build
   - test
+  - fuzz
 
+# ========== ДОП ЗАДАНИЕ 1: GITLEAKS (ПОИСК СЕКРЕТОВ) ==========
+gitleaks-scan:
+  stage: secrets
+  image: zricethezav/gitleaks:latest
+  script:
+    - gitleaks detect --source . --no-git -v --redact
+  allow_failure: false
+
+# ========== ТВОЙ СУЩЕСТВУЮЩИЙ BUILD ==========
 maven-build:
   stage: build
+  needs: []
   script:
     - ./mvnw.cmd -B clean test package
   artifacts:
     paths:
       - target/*.jar
 
+# ========== ТВОЙ СУЩЕСТВУЮЩИЙ SAST ==========
 semgrep-sast:
   stage: test
   variables:
@@ -28,6 +41,7 @@ semgrep-sast:
     reports:
       sast: gl-sast-report.json
 
+# ========== ТВОЙ СУЩЕСТВУЮЩИЙ DEPENDENCY CHECK ==========
 dependency-check:
   stage: test
   timeout: 2h
@@ -39,6 +53,7 @@ dependency-check:
     paths:
       - target/dependency-check-report.html
 
+# ========== ТВОЙ СУЩЕСТВУЮЩИЙ DAST ==========
 dast-baseline:
   stage: test
   needs:
@@ -70,3 +85,23 @@ dast-api:
     when: always
     paths:
       - zap-api-report.html
+
+# ========== ДОП ЗАДАНИЕ 2: ФАЗЗИНГ (FFUF) ДЛЯ WINDOWS ==========
+web-fuzzing:
+  stage: fuzz
+  needs:
+    - job: maven-build
+      artifacts: true
+    - job: dast-baseline
+  script:
+    - choco install ffuf -y
+    - $env:Path += ";C:\ProgramData\chocolatey\bin"
+    - Start-Process -NoNewWindow -FilePath java -ArgumentList "-jar", (Get-Item target\*.jar).FullName
+    - Start-Sleep -Seconds 45
+    - "login`nregister`ncourses`nstudents`nadmin`nxml`nconfig`napi`nuser`npassword`nroot" | Out-File -FilePath wordlist.txt -Encoding ASCII
+    - ffuf -u http://localhost:8080/api/FUZZ -w wordlist.txt -mc all -o fuzz-report.json
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - fuzz-report.json
