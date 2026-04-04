@@ -169,7 +169,7 @@ jobs:
   # ========== ДОП ЗАДАНИЕ 3: БЕЗОПАСНОСТЬ КОНТЕЙНЕРОВ ==========
   container-security:
     runs-on: ubuntu-latest
-    needs: [build, fuzzing]
+    needs: [build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
