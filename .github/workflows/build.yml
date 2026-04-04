@@ -23,25 +23,16 @@ jobs:
           docker run --rm -v ${{ github.workspace }}:/code zricethezav/gitleaks:latest detect --source="/code" --no-git -v
 
   build_job:
-    needs: secrets-scan
+    secrets-scan:
     runs-on: ubuntu-latest
-    container:
-      image: eclipse-temurin:21-jdk
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Make mvnw executable
-        run: chmod +x ./mvnw
-
-      - name: Build with Maven
-        run: ./mvnw -B clean package
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          name: app-jar
-          path: target/*.jar
+          fetch-depth: 1
+      - name: Gitleaks Secret Detection
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/code \
+            zricethezav/gitleaks:latest detect --source="/code" --no-git -v
 
   sast:
     needs: build_job
