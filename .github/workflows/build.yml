@@ -23,7 +23,7 @@ jobs:
           docker run --rm -v ${{ github.workspace }}:/code zricethezav/gitleaks:latest detect --source="/code" --no-git -v
 
   build_job:
-    secrets-scan:
+    needs : secrets-scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
